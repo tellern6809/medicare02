@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Dashboard – MediCare</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body class="dash-body">
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <i class="fa-solid fa-hospital-user"></i>
+        <span>MediCare</span>
+    </div>
+    <nav class="sidebar-nav">
+        <a href="#overview" class="nav-item active" data-section="overview">
+            <i class="fa-solid fa-gauge-high"></i> Overview
+        </a>
+        <a href="#book" class="nav-item" data-section="book">
+            <i class="fa-solid fa-calendar-plus"></i> Book Appointment
+        </a>
+        <a href="#appointments" class="nav-item" data-section="appointments">
+            <i class="fa-solid fa-calendar-check"></i> My Appointments
+        </a>
+        <a href="#chats" class="nav-item" data-section="chats">
+            <i class="fa-solid fa-comments"></i> My Chats
+            <span class="chat-badge" id="patientChatBadge"></span>
+        </a>
+        <a href="#profile" class="nav-item" data-section="profile">
+            <i class="fa-solid fa-circle-user"></i> My Profile
+        </a>
+    </nav>
+    <div class="sidebar-footer">
+        <div class="user-chip">
+            {% if patient and patient.profile_picture %}
+            <img src="{{ url_for('static', filename=patient.profile_picture) }}" class="user-avatar-img" alt="avatar">
+            {% else %}
+            <div class="user-avatar">{{ session['fullname'][0] }}</div>
+            {% endif %}
+            <div>
+                <strong>{{ session['fullname'] }}</strong>
+                <small>Patient</small>
+            </div>
+        </div>
+        <a href="{{ url_for('logout') }}" class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+        </a>
+    </div>
+</aside>
+
+<!-- ── MAIN CONTENT ── -->
+<main class="dash-main">
+    <header class="dash-header">
+        <button class="sidebar-toggle" id="sidebarToggle">
+            <i class="fa-solid fa-bars"></i>
+        </button>
+        <div class="dash-header-title">
+            <h1>Patient Dashboard</h1>
+            <p>Welcome back, <strong>{{ session['fullname'] }}</strong></p>
+        </div>
+        <div class="header-date">
+            <i class="fa-solid fa-calendar"></i>
+            <span id="currentDate"></span>
+        </div>
+    </header>
+
+    <!-- FLASH MESSAGES -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-container">
+        {% for cat, msg in messages %}
+        <div class="alert alert-{{ cat }}">{{ msg }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <!-- ── SECTION: OVERVIEW ── -->
+    <section id="overview" class="dash-section active">
+        <div class="stats-grid">
+            <div class="stat-card blue">
+                <div class="stat-icon"><i class="fa-solid fa-calendar-days"></i></div>
+                <div class="stat-info">
+                    <span class="stat-label">Total Appointments</span>
+                    <span class="stat-num" data-target="{{ stats.total or 0 }}">{{ stats.total or 0 }}</span>
+                </div>
+            </div>
+            <div class="stat-card yellow">
+                <div class="stat-icon"><i class="fa-solid fa-clock"></i></div>
+                <div class="stat-info">
+                    <span class="stat-label">Pending</span>
+                    <span class="stat-num" data-target="{{ stats.pending or 0 }}">{{ stats.pending or 0 }}</span>
+                </div>
+            </div>
+            <div class="stat-card green">
+                <div class="stat-icon"><i class="fa-solid fa-circle-check"></i></div>
+                <div class="stat-info">
+                    <span class="stat-label">Accepted</span>
+                    <span class="stat-num" data-target="{{ stats.accepted or 0 }}">{{ stats.accepted or 0 }}</span>
+                </div>
+            </div>
+            <div class="stat-card teal">
+                <div class="stat-icon"><i class="fa-solid fa-badge-check"></i></div>
+                <div class="stat-info">
+                    <span class="stat-label">Completed</span>
+                    <span class="stat-num" data-target="{{ stats.completed or 0 }}">{{ stats.completed or 0 }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Appointments Preview -->
+        <div class="dash-card">
+            <div class="card-head">
+                <h3><i class="fa-solid fa-history"></i> Recent Appointments</h3>
+                <button class="btn-sm" onclick="showSection('appointments')">View All</button>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Doctor</th>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in appointments[:5] %}
+                        <tr data-appt-id="{{ a.id }}">
+                            <td>
+                                <div class="doc-cell">
+                                    <div class="doc-avatar">{{ a.doctor_name[3] if a.doctor_name|length > 3 else a.doctor_name[0] }}</div>
+                                    <div>
+                                        <strong>{{ a.doctor_name }}</strong>
+                                        <small>{{ a.specialization or '' }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ a.date }}</td>
+                            <td>{{ a.time }}</td>
+                            <td><span class="badge badge-{{ a.status.lower() }}">{{ a.status }}</span></td>
+                            <td class="actions-cell">
+                                {% if a.status in ['Pending', 'Accepted'] %}
+                                <form method="POST" action="{{ url_for('cancel_appointment', appt_id=a.id) }}"
+                                      data-cancel-ajax="1" data-appt-id="{{ a.id }}">
+                                    <button type="submit" class="btn-action btn-cancel">
+                                        <i class="fa-solid fa-ban"></i> Cancel
+                                    </button>
+                                </form>
+                                {% endif %}
+                                {% if a.status == 'Accepted' and not a.pay_status %}
+                                <a href="{{ url_for('payment_page', appt_id=a.id) }}" class="btn-action btn-pay">
+                                    <i class="fa-solid fa-credit-card"></i> Pay
+                                </a>
+                                {% endif %}
+                                {% if a.pay_status == 'Paid' %}
+                                <span class="badge badge-completed"><i class="fa-solid fa-check"></i> Paid</span>
+                                {% endif %}
+                                {% if a.status == 'Accepted' %}
+                                <button class="btn-chat" onclick="openChat({{ a.id }}, 'Dr. {{ a.doctor_name }}', '{{ a.date }}', '{{ a.time }}')">
+                                    <i class="fa-solid fa-comment-medical"></i> Chat
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="empty-row">No appointments yet. Book one below!</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── SECTION: BOOK APPOINTMENT ── -->
+    <section id="book" class="dash-section">
+        <div class="dash-card form-card">
+            <div class="card-head">
+                <h3><i class="fa-solid fa-calendar-plus"></i> Book New Appointment</h3>
+            </div>
+            <form method="POST" action="{{ url_for('book_appointment') }}" id="bookForm" novalidate>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Select Doctor</label>
+                        <select name="doctor_id" required>
+                            <option value="">-- Choose a Doctor --</option>
+                            {% for doc in doctors %}
+                            <option value="{{ doc.id }}">Dr. {{ doc.fullname }} – {{ doc.specialization or 'General' }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Appointment Date</label>
+                        <input type="date" name="date" required
+                               min="{{ now.strftime('%Y-%m-%d') if now else '' }}" id="apptDate">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Preferred Time</label>
+                        <input type="time" name="time" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Reason for Visit</label>
+                        <input type="text" name="reason" placeholder="Brief description of symptoms..." required>
+                    </div>
+                </div>
+                <button type="submit" class="btn-submit-dash">
+                    <i class="fa-solid fa-calendar-check"></i> Book Appointment
+                </button>
+            </form>
+        </div>
+    </section>
+
+    <!-- ── SECTION: ALL APPOINTMENTS ── -->
+    <section id="appointments" class="dash-section">
+        <div class="dash-card">
+            <div class="card-head">
+                <h3><i class="fa-solid fa-calendar-check"></i> All My Appointments</h3>
+                <div class="filter-tabs" id="filterTabs">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="pending">Pending</button>
+                    <button class="filter-btn" data-filter="accepted">Accepted</button>
+                    <button class="filter-btn" data-filter="completed">Completed</button>
+                    <button class="filter-btn" data-filter="cancelled">Cancelled</button>
+                    <button class="filter-btn" data-filter="rejected">Rejected</button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table" id="appointmentsTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Doctor</th>
+                            <th>Specialization</th>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Reason</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in appointments %}
+                        <tr data-status="{{ a.status.lower() }}" data-appt-id="{{ a.id }}">
+                            <td>{{ loop.index }}</td>
+                            <td><strong>{{ a.doctor_name }}</strong></td>
+                            <td>{{ a.specialization or '—' }}</td>
+                            <td>{{ a.date }}</td>
+                            <td>{{ a.time }}</td>
+                            <td>{{ a.reason[:40] }}{% if a.reason|length > 40 %}…{% endif %}</td>
+                            <td><span class="badge badge-{{ a.status.lower() }}">{{ a.status }}</span></td>
+                            <td class="actions-cell">
+                                {% if a.status in ['Pending', 'Accepted'] %}
+                                <form method="POST" action="{{ url_for('cancel_appointment', appt_id=a.id) }}"
+                                      data-cancel-ajax="1" data-appt-id="{{ a.id }}">
+                                    <button type="submit" class="btn-action btn-cancel">
+                                        <i class="fa-solid fa-ban"></i> Cancel
+                                    </button>
+                                </form>
+                                {% endif %}
+                                {% if a.status == 'Accepted' and not a.pay_status %}
+                                <a href="{{ url_for('payment_page', appt_id=a.id) }}" class="btn-action btn-pay">
+                                    <i class="fa-solid fa-credit-card"></i> Pay Now
+                                </a>
+                                {% endif %}
+                                {% if a.pay_status == 'Paid' %}
+                                <span class="badge badge-completed"><i class="fa-solid fa-check"></i> Paid</span>
+                                {% endif %}
+                                {% if a.status == 'Accepted' %}
+                                <button class="btn-chat" onclick="openChat({{ a.id }}, 'Dr. {{ a.doctor_name }}', '{{ a.date }}', '{{ a.time }}')">
+                                    <i class="fa-solid fa-comment-medical"></i> Chat
+                                </button>
+                                {% endif %}
+                                {% if a.status == 'Rejected' %}
+                                <span class="badge badge-rejected"><i class="fa-solid fa-ban"></i> Rejected</span>
+                                {% endif %}
+                                {% if a.status not in ['Pending', 'Accepted', 'Rejected'] and not a.pay_status %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="8" class="empty-row">No appointments found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── SECTION: MY CHATS (Accepted Appointments Only) ── -->
+    <section id="chats" class="dash-section">
+        <div class="dash-card">
+            <div class="card-head">
+                <h3><i class="fa-solid fa-comments"></i> My Chats</h3>
+                <span style="font-size:13px;color:var(--text-muted)">Chat with your doctor — only available after appointment is accepted</span>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Doctor</th>
+                            <th>Specialization</th>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set accepted_list = appointments | selectattr('status', 'equalto', 'Accepted') | list %}
+                        {% for a in accepted_list %}
+                        <tr>
+                            <td>
+                                <div class="doc-cell">
+                                    <div class="doc-avatar">{{ a.doctor_name[3] if a.doctor_name|length > 3 else a.doctor_name[0] }}</div>
+                                    <div>
+                                        <strong>Dr. {{ a.doctor_name }}</strong>
+                                        <small>{{ a.specialization or 'General' }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ a.specialization or '—' }}</td>
+                            <td>{{ a.date }}</td>
+                            <td>{{ a.time }}</td>
+                            <td>
+                                <button class="btn-chat" onclick="openChat({{ a.id }}, 'Dr. {{ a.doctor_name }}', '{{ a.date }}', '{{ a.time }}')">
+                                    <i class="fa-solid fa-comment-medical"></i> Open Chat
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="empty-row">
+                                <i class="fa-solid fa-lock" style="margin-right:6px;color:var(--text-muted)"></i>
+                                Chat is locked. It becomes available once a doctor accepts your appointment.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </section>
+
+    <!-- ── SECTION: PROFILE ── -->
+    <section id="profile" class="dash-section">
+        <div class="section-header"><h2><i class="fa-solid fa-circle-user"></i> My Profile</h2></div>
+
+        <!-- Profile Picture Card -->
+        <div class="profile-card">
+            <div class="profile-pic-wrap">
+                {% if patient and patient.profile_picture %}
+                <img src="{{ url_for('static', filename=patient.profile_picture) }}" class="profile-pic" id="profilePicPreview" alt="Profile Picture">
+                {% else %}
+                <div class="profile-pic-placeholder" id="profilePicPreview">{{ session['fullname'][0] }}</div>
+                {% endif %}
+                <label class="profile-pic-edit-btn" for="picInput" title="Change photo">
+                    <i class="fa-solid fa-camera"></i>
+                </label>
+            </div>
+            <div class="profile-pic-info">
+                <h3>{{ session['fullname'] }}</h3>
+                <span class="role-badge patient-badge"><i class="fa-solid fa-user-injured"></i> Patient</span>
+                <form action="{{ url_for('update_profile_picture') }}" method="POST" enctype="multipart/form-data" id="picForm">
+                    <input type="file" id="picInput" name="profile_picture" accept="image/*" style="display:none" onchange="document.getElementById('picForm').submit()">
+                </form>
+                <p class="pic-hint"><i class="fa-solid fa-circle-info"></i> Click the camera icon to upload a photo (PNG, JPG, WEBP)</p>
+            </div>
+        </div>
+
+        <!-- Personal Details Card -->
+        <div class="profile-details-card">
+            <div class="profile-details-header">
+                <h3><i class="fa-solid fa-id-card"></i> Personal Details</h3>
+                <button class="btn-edit-profile" id="toggleEditBtn" onclick="toggleProfileEdit()">
+                    <i class="fa-solid fa-pen"></i> Edit
+                </button>
+            </div>
+
+            <!-- View Mode -->
+            <div id="profileViewMode" class="profile-view-grid">
+                <div class="profile-field">
+                    <span class="field-label"><i class="fa-solid fa-user"></i> Full Name</span>
+                    <span class="field-value">{{ patient.fullname if patient else session['fullname'] }}</span>
+                </div>
+                <div class="profile-field">
+                    <span class="field-label"><i class="fa-solid fa-envelope"></i> Email</span>
+                    <span class="field-value">{{ patient.email if patient else '' }}</span>
+                </div>
+                <div class="profile-field">
+                    <span class="field-label"><i class="fa-solid fa-phone"></i> Phone</span>
+                    <span class="field-value">{{ patient.phone if patient else '' }}</span>
+                </div>
+                <div class="profile-field">
+                    <span class="field-label"><i class="fa-solid fa-shield-halved"></i> Role</span>
+                    <span class="field-value">Patient</span>
+                </div>
+            </div>
+
+            <!-- Edit Mode -->
+            <form id="profileEditMode" action="{{ url_for('update_profile') }}" method="POST" style="display:none">
+                <div class="profile-edit-grid">
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-user"></i> Full Name</label>
+                        <input type="text" name="fullname" class="form-input" value="{{ patient.fullname if patient else session['fullname'] }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-envelope"></i> Email</label>
+                        <input type="email" class="form-input" value="{{ patient.email if patient else '' }}" disabled title="Email cannot be changed">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-phone"></i> Phone</label>
+                        <input type="text" name="phone" class="form-input" value="{{ patient.phone if patient else '' }}" required>
+                    </div>
+                </div>
+                <div class="profile-edit-actions">
+                    <button type="submit" class="btn-save-profile"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+                    <button type="button" class="btn-cancel-edit" onclick="toggleProfileEdit()"><i class="fa-solid fa-xmark"></i> Cancel</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Change Password Card -->
+        <div class="profile-details-card">
+            <div class="profile-details-header">
+                <h3><i class="fa-solid fa-lock"></i> Change Password</h3>
+            </div>
+            <form action="{{ url_for('change_password') }}" method="POST" class="password-change-form">
+                <div class="profile-edit-grid">
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-lock"></i> Current Password</label>
+                        <input type="password" name="current_password" class="form-input" placeholder="Enter current password" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-key"></i> New Password</label>
+                        <input type="password" name="new_password" class="form-input" placeholder="Min. 8 characters" required minlength="8">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-key"></i> Confirm New Password</label>
+                        <input type="password" name="confirm_password" class="form-input" placeholder="Repeat new password" required minlength="8">
+                    </div>
+                </div>
+                <div class="profile-edit-actions">
+                    <button type="submit" class="btn-save-profile"><i class="fa-solid fa-floppy-disk"></i> Update Password</button>
+                </div>
+            </form>
+        </div>
+    </section>
+</main>
+
+<!-- Confirmation Modal -->
+<div class="modal-overlay" id="confirmModal">
+    <div class="modal-box">
+        <div class="modal-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <h3 id="modalTitle">Confirm Action</h3>
+        <p id="modalMessage">Are you sure?</p>
+        <div class="modal-actions">
+            <button class="btn-modal-cancel" onclick="closeModal()">No, Keep</button>
+            <button class="btn-modal-confirm" id="modalConfirmBtn">Yes, Proceed</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══ CHAT OVERLAY ══ -->
+<div class="chat-overlay" id="chatOverlay">
+    <div class="chat-window" id="chatWindow">
+        <div class="chat-header">
+            <div class="chat-avatar-wrap">
+                <div class="chat-avatar" id="chatAvatarLetter">D</div>
+                <span class="online-dot" id="chatOnlineDot"></span>
+            </div>
+            <div class="chat-header-info">
+                <div class="chat-header-name" id="chatHeaderName">Doctor</div>
+                <div class="chat-header-status" id="chatHeaderStatus">
+                    <span class="chat-header-status-dot"></span>
+                    <span class="chat-status-text">Offline</span>
+                </div>
+            </div>
+            <button class="chat-close-btn" id="chatCloseBtn" title="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="chat-appt-bar" id="chatApptBar">
+            <i class="fa-solid fa-calendar-check"></i>
+            <span>Appointment details</span>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="chat-empty">
+                <i class="fa-regular fa-comments"></i>
+                <p>Open a chat to start messaging.</p>
+            </div>
+        </div>
+        <div class="typing-indicator" id="chatTyping">
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+        </div>
+        <div class="chat-input-area">
+            <div class="chat-input-wrap">
+                <textarea class="chat-textarea" id="chatTextarea"
+                    rows="1" placeholder="Type a message… (Enter to send)"></textarea>
+            </div>
+            <button class="chat-send-btn" id="chatSendBtn" title="Send">
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('apptDate').min = new Date().toISOString().split('T')[0];
+    document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-KE', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+</script>
+
+<script>
+function toggleProfileEdit() {
+    const view = document.getElementById('profileViewMode');
+    const edit = document.getElementById('profileEditMode');
+    const btn  = document.getElementById('toggleEditBtn');
+    if (edit.style.display === 'none') {
+        view.style.display = 'none';
+        edit.style.display = 'block';
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-xmark"></i> Cancel';
+    } else {
+        view.style.display = 'grid';
+        edit.style.display = 'none';
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-pen"></i> Edit';
+    }
+}
+// Auto-navigate to profile section if flash came from profile route
+(function() {
+    const hash = window.location.hash;
+    if (hash === '#profile') {
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.querySelectorAll('.dash-section').forEach(s => s.classList.remove('active'));
+        const pNav = document.querySelector('[data-section="profile"]');
+        const pSec = document.getElementById('profile');
+        if (pNav) pNav.classList.add('active');
+        if (pSec) pSec.classList.add('active');
+    }
+})();
+</script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+</body>
+</html>

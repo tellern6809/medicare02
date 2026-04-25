@@ -1,0 +1,48 @@
+.admin-body { --sidebar-accent: #7c3aed; }
+
+.admin-sidebar {
+    background: linear-gradient(180deg, #1e1b4b 0%, #312e81 100%) !important;
+}
+
+/* Two-column layout for doctors section */
+.admin-two-col {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 24px;
+    align-items: start;
+}
+
+/* Filter select */
+.admin-filter { 
+    display:flex; 
+    gap:12px; 
+    align-items:center; }
+.filter-select {
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 2px solid var(--border);
+    font-family: inherit; font-size:14px;
+    color: var(--text); outline:none;
+    cursor:pointer;
+    transition:border-color .2s;
+    background:#fff;
+}
+.filter-select:focus { border-color:var(--blue); }
+
+/* Mini select in table */
+.mini-select {
+    padding:5px 8px;
+    border-radius:7px;
+    border:1.5px solid var(--border);
+    font-size:12px; font-family:inherit;
+    color:var(--text); outline:none; cursor:pointer;
+    background:#fff;
+}
+.mini-select:focus { border-color:var(--blue); }
+
+/* Filter form inline */
+.filter-form { display:inline-flex; }
+
+@media (max-width:900px) {
+    .admin-two-col { grid-template-columns:1fr; }
+}

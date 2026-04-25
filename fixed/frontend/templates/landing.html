@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Online Doctors Appointment System</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    </head>
+    <body>
+<!--Navbar-->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <i class="fa-solid fa-hospital-user"></i>
+            <span>Medicare</span>
+        </div>
+        <ul class="nav-links" id="navLinks">
+            <li><a href="#features">Features</a></li>
+            <li><a href="#services">Services</a></li>
+            <li><a href="#about">About</a></li>
+            <li><a href="{{ url_for('login') }}" class="btn-outline">Login</a></li>
+            <li><a href="{{ url_for('register') }}" class="btn-primary">Get Started</a></li>
+        </ul>
+        <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+    </nav>
+<!--HERO SECTION-->
+    <section class="hero">
+        <div class="hero-bg-shapes">
+            <div class="shape shape-1"></div>
+            <div class="shape shape-2"></div>
+            <div class="shape shape-3"></div>
+    </div>
+    <div class="hero-content">
+        <span class="hero-badge"><i class="fa-solid fa-shield-heart"></i> Trusted Healthcare Platform</span>
+        <h1>Modern Healthcare<br><em>Appointment</em> Made Simple</h1>
+        <p>Book appointments, manage your visits and connect with healthcare professions easily — all in one convenient platform designed to make healthcare access simple and efficient.</p>
+        <div class="hero-actions">
+           <a href="{{ url_for('register') }}" class="btn-primary">Book Appointment</a>
+          <a href="{{ url_for('login') }}" class="btn-outline">Sign In</a>
+        </div>
+        <div class="hero-stats">
+            <div class="stat">
+                <strong>5,000+</strong>
+                <span>Patients Served</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat">
+                <strong>120+</strong>
+                <span>Specialists</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat">
+                <strong>24/7</strong>
+                <span>Support</span>
+            </div>
+        </div>
+    </div>
+    </section>
+<!--FEATURES SECTION-->
+    <section class="features" id="features">
+        <div class="section-header">
+            <span class="label">Why choose us</span>
+            <h2>Everything You Need in One Place</h2>
+            <p>Our online doctor appointment system makes it easy to find doctors, schedule appointments, and manage your healthcare visits from one convenient platform.</p>
+        </div>
+        <div class="features-grid">
+            <div class="features-card">
+                <div class="feature-icon blue">
+                    <i class="fa-solid fa-calendar-days"></i>
+                </div>
+                <h3>Smart Scheduling</h3>
+                <p>Book, manage and track appointments with real-time status updates and instant notifications.</p>
+            </div>
+            <div class="features-card">
+                <div class="feature-icon green">
+                    <i class="fa-solid fa-user-doctor"></i>
+                </div>
+                <h3>Doctor Management</h3>
+                <p>Doctors can view, accept, reject, and complete appointments from their personalized dashboard.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon purple">
+                    <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <h3>Secure & Encrypted</h3>
+            <p>JWT authentication, bcrypt password hashing, and role-based access control keep data safe.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon orange">
+                <i class="fa-solid fa-credit-card"></i>
+            </div>
+            <h3>Multi-Payment Support</h3>
+            <p>Pay via PayPal, M-Pesa, or Card — flexible payment options for every patient.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon teal">
+                <i class="fa-solid fa-chart-pie"></i>
+            </div>
+            <h3>Admin Reports</h3>
+            <p>Full visibility into appointments, revenue, users, and operational metrics from the admin panel.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon red">
+                <i class="fa-solid fa-mobile-screen"></i>
+            </div>
+            <h3>Mobile Responsive</h3>
+            <p>Works seamlessly on phones, tablets, and desktops with a beautiful, adaptive interface.</p>
+        </div>
+        </div>
+    </section>
+<!--SERVICES SECTION-->
+    <section class="services" id="services">
+        <div class="section-header light">
+            <span class="label">Our Departments</span>
+            <h2>Specialized Medical Services</h2>
+        </div>
+        <div class="services-grid">
+            <div class="service-card">
+                <i class="fa-solid fa-heart-pulse"></i>
+                <h4>Cardiology</h4>
+        </div>
+        <div class="service-card">
+            <i class="fa-solid fa-baby"></i>
+            <h4>Pediatrics</h4>
+        </div>
+        <div class="service-card">
+            <i class="fa-solid fa-bone"></i>
+            <h4>Orthopedics</h4>
+        </div>
+        <div class="service-card">
+            <i class="fa-solid fa-brain"></i>
+            <h4>Neurology</h4>
+        </div>
+        <div class="service-card">
+            <i class="fa-solid fa-eye"></i>
+            <h4>Ophthalmology</h4>
+        </div>
+        <div class="service-card">
+            <i class="fa-solid fa-stethoscope"></i>
+            <h4>General Medicine</h4>
+        </div>
+    </div>
+</section>
+<!--ABOUT SECTION-->
+    <section class="about" id="about">
+        <div class="about-text">
+            <span class="label">About Medicare</span>
+            <h2>Transforming Healthcare with Technology</h2>
+            <p>MediCare is an online doctor appointment platform designed to connect patients with healthcare professionals. It makes scheduling appointments, managing visits, and accessing healthcare services simple, fast, and convenient.</p>
+        <ul class="about-list">
+            <li><i class="fa-solid fa-check-circle"></i> HIPAA-compliant data management</li>
+            <li><i class="fa-solid fa-check-circle"></i> Real-time appointment tracking</li>
+            <li><i class="fa-solid fa-check-circle"></i> Secure payment processing</li>
+            <li><i class="fa-solid fa-check-circle"></i> Multi-role access control</li>
+        </ul>
+        <a href="{{ url_for('register') }}" class="btn-hero-primary">Get Started Free</a>
+    </div>
+    <div class="about-cards">
+        <div class="info-card">
+            <i class="fa-solid fa-users"></i>
+            <strong>5,000+</strong>
+            <span>Active Patients</span>
+        </div>
+        <div class="info-card">
+            <i class="fa-solid fa-user-doctor"></i>
+            <strong>120+</strong>
+            <span>Specialist Doctors</span>
+        </div>
+        <div class="info-card">
+            <i class="fa-solid fa-star"></i>
+            <strong>4.9/5</strong>
+            <span>Patient Rating</span>
+        </div>
+        <div class="info-card">
+            <i class="fa-solid fa-clock"></i>
+            <strong>24/7</strong>
+            <span>System Uptime</span>
+        </div>
+    </div>
+</section>
+<!--FOOTER SECTION-->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <i class="fa-solid fa-hospital-user"></i>
+                <span>MediCare</span>
+        </div>
+        <p>© 2026 MediCare. All rights reserved.</p>
+    </div>
+</footer>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    </body>
+</html>

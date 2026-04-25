@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Dashboard – MediCare</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body class="dash-body">
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <i class="fa-solid fa-hospital-user"></i>
+        <span>MediCare</span>
+    </div>
+    <nav class="sidebar-nav">
+        <a href="#overview" class="nav-item active" data-section="overview">
+            <i class="fa-solid fa-gauge-high"></i> Overview
+        </a>
+        <a href="#appointments" class="nav-item" data-section="appointments">
+            <i class="fa-solid fa-calendar-check"></i> Appointments
+        </a>
+        <a href="#chats" class="nav-item" data-section="chats">
+            <i class="fa-solid fa-comments"></i> Patient Chats
+            <span class="chat-badge" id="doctorChatBadge"></span>
+        </a>
+        <a href="#profile" class="nav-item" data-section="profile">
+            <i class="fa-solid fa-circle-user"></i> My Profile
+        </a>
+    </nav>
+    <div class="sidebar-footer">
+        <div class="user-chip">
+            {% if doctor and doctor.profile_picture %}
+            <img src="{{ url_for('static', filename=doctor.profile_picture) }}" class="user-avatar-img" alt="avatar">
+            {% else %}
+            <div class="user-avatar green-av">{{ session['fullname'][0] }}</div>
+            {% endif %}
+            <div>
+                <strong>{{ session['fullname'] }}</strong>
+                <small>Doctor</small>
+            </div>
+        </div>
+        <a href="{{ url_for('logout') }}" class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+        </a>
+    </div>
+</aside>
+
+<!-- ── MAIN ── -->
+<main class="dash-main">
+    <header class="dash-header">
+        <button class="sidebar-toggle" id="sidebarToggle">
+            <i class="fa-solid fa-bars"></i>
+        </button>
+        <div class="dash-header-title">
+            <h1>Doctor Dashboard</h1>
+            <p>Welcome, <strong>{{ session['fullname'] }}</strong></p>
+        </div>
+        <div class="header-date">
+            <i class="fa-solid fa-calendar"></i>
+            <span id="currentDate"></span>
+        </div>
+    </header>
+
+    <!-- FLASH MESSAGES -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-container">
+        {% for cat, msg in messages %}
+        <div class="alert alert-{{ cat }}">{{ msg }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <!-- OVERVIEW -->
+    <section id="overview" class="dash-section active">
+        <div class="stats-grid">
+            <div class="stat-card yellow">
+                <div class="stat-icon"><i class="fa-solid fa-clock"></i></div>
+                <div class="stat-info">
+                    <span class="stat-label">Pending</span>
+                    <span class="stat-num" id="stat-pending">{{ stats.pending or 0 }}</span>
+                </div>
+            </div>
+            <div class="stat-card green">
+                <div class="stat-icon"><i class="fa-solid fa-circle-check"></i></div>
+                <div class="stat-info">
+                    <span class="stat-label">Accepted</span>
+                    <span class="stat-num" id="stat-accepted">{{ stats.accepted or 0 }}</span>
+                </div>
+            </div>
+            <div class="stat-card teal">
+                <div class="stat-icon"><i class="fa-solid fa-badge-check"></i></div>
+                <div class="stat-info">
+                    <span class="stat-label">Completed</span>
+                    <span class="stat-num" id="stat-completed">{{ stats.completed or 0 }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upcoming Appointments (live refresh) -->
+        <div class="dash-card">
+            <div class="card-head">
+                <h3><i class="fa-solid fa-calendar-day"></i> Upcoming Appointments</h3>
+                <button class="btn-sm" onclick="showSection('appointments')">View All</button>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Patient</th>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Reason</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="overviewTableBody">
+                        {% for a in appointments if a.status in ['Pending', 'Accepted'] %}
+                        <tr id="appt-overview-{{ a.id }}">
+                            <td>
+                                <div class="doc-cell">
+                                    <div class="doc-avatar green-av">{{ a.patient_name[0] }}</div>
+                                    <div>
+                                        <strong>{{ a.patient_name }}</strong>
+                                        <small>{{ a.patient_phone }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ a.date }}</td>
+                            <td>{{ a.time }}</td>
+                            <td>{{ a.reason[:30] }}{% if a.reason|length > 30 %}…{% endif %}</td>
+                            <td><span class="badge badge-{{ a.status.lower() }}" id="ov-badge-{{ a.id }}">{{ a.status }}</span></td>
+                            <td class="actions-cell" id="ov-actions-{{ a.id }}">
+                                {% if a.status == 'Pending' %}
+                                <button class="btn-action btn-accept" onclick="doctorAction({{ a.id }}, 'accept')">
+                                    <i class="fa-solid fa-check"></i> Accept
+                                </button>
+                                <button class="btn-action btn-cancel" onclick="doctorAction({{ a.id }}, 'reject')">
+                                    <i class="fa-solid fa-times"></i> Reject
+                                </button>
+                                {% elif a.status == 'Accepted' %}
+                                <button class="btn-action btn-complete" onclick="doctorAction({{ a.id }}, 'complete')">
+                                    <i class="fa-solid fa-flag-checkered"></i> Complete
+                                </button>
+                                <button class="btn-chat" onclick="openChat({{ a.id }}, '{{ a.patient_name }}', '{{ a.date }}', '{{ a.time }}')">
+                                    <i class="fa-solid fa-comment-medical"></i> Chat
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr id="ov-empty"><td colspan="6" class="empty-row">No pending or accepted appointments.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- ALL APPOINTMENTS -->
+    <section id="appointments" class="dash-section">
+        <div class="dash-card">
+            <div class="card-head">
+                <h3><i class="fa-solid fa-list-check"></i> All Appointments</h3>
+                <div class="filter-tabs">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="pending">Pending</button>
+                    <button class="filter-btn" data-filter="accepted">Accepted</button>
+                    <button class="filter-btn" data-filter="completed">Completed</button>
+                    <button class="filter-btn" data-filter="rejected">Rejected</button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table" id="appointmentsTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Patient</th>
+                            <th>Phone</th>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Reason</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="allTableBody">
+                        {% for a in appointments %}
+                        <tr id="appt-row-{{ a.id }}" data-status="{{ a.status.lower() }}">
+                            <td>{{ loop.index }}</td>
+                            <td><strong>{{ a.patient_name }}</strong></td>
+                            <td>{{ a.patient_phone }}</td>
+                            <td>{{ a.date }}</td>
+                            <td>{{ a.time }}</td>
+                            <td>{{ a.reason }}</td>
+                            <td><span class="badge badge-{{ a.status.lower() }}" id="al-badge-{{ a.id }}">{{ a.status }}</span></td>
+                            <td class="actions-cell" id="al-actions-{{ a.id }}">
+                                {% if a.status == 'Pending' %}
+                                <button class="btn-action btn-accept" onclick="doctorAction({{ a.id }}, 'accept')">
+                                    <i class="fa-solid fa-check"></i>
+                                </button>
+                                <button class="btn-action btn-cancel" onclick="doctorAction({{ a.id }}, 'reject')">
+                                    <i class="fa-solid fa-times"></i>
+                                </button>
+                                {% elif a.status == 'Accepted' %}
+                                <button class="btn-action btn-complete" onclick="doctorAction({{ a.id }}, 'complete')">
+                                    <i class="fa-solid fa-flag-checkered"></i> Done
+                                </button>
+                                <button class="btn-chat" onclick="openChat({{ a.id }}, '{{ a.patient_name }}', '{{ a.date }}', '{{ a.time }}')">
+                                    <i class="fa-solid fa-comment-medical"></i> Chat
+                                </button>
+                                {% elif a.status == 'Rejected' %}
+                                <span class="badge badge-rejected"><i class="fa-solid fa-ban"></i> Rejected</span>
+                                {% elif a.status == 'Completed' %}
+                                <span class="badge badge-completed"><i class="fa-solid fa-check-double"></i> Done</span>
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="8" class="empty-row">No appointments assigned yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- CHAT SECTION -->
+    <section id="chats" class="dash-section">
+        <div class="dash-card">
+            <div class="card-head">
+                <h3><i class="fa-solid fa-comments"></i> Patient Chats</h3>
+                <span style="font-size:13px;color:var(--text-muted)">Chat available for Accepted appointments only</span>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Patient</th>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Reason</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="chatTableBody">
+                        {% set accepted = appointments | selectattr('status', 'equalto', 'Accepted') | list %}
+                        {% for a in accepted %}
+                        <tr>
+                            <td>
+                                <div class="doc-cell">
+                                    <div class="doc-avatar green-av">{{ a.patient_name[0] }}</div>
+                                    <div>
+                                        <strong>{{ a.patient_name }}</strong>
+                                        <small>{{ a.patient_phone }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ a.date }}</td>
+                            <td>{{ a.time }}</td>
+                            <td>{{ a.reason[:35] }}{% if a.reason|length > 35 %}…{% endif %}</td>
+                            <td>
+                                <button class="btn-chat" onclick="openChat({{ a.id }}, '{{ a.patient_name }}', '{{ a.date }}', '{{ a.time }}')">
+                                    <i class="fa-solid fa-comment-medical"></i> Open Chat
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr id="chatEmptyRow"><td colspan="5" class="empty-row">No accepted appointments available for chat.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </section>
+
+    <!-- ── SECTION: PROFILE ── -->
+    <section id="profile" class="dash-section">
+        <div class="section-header"><h2><i class="fa-solid fa-circle-user"></i> My Profile</h2></div>
+
+        <!-- Profile Picture Card -->
+        <div class="profile-card">
+            <div class="profile-pic-wrap">
+                {% if doctor and doctor.profile_picture %}
+                <img src="{{ url_for('static', filename=doctor.profile_picture) }}" class="profile-pic" id="profilePicPreview" alt="Profile Picture">
+                {% else %}
+                <div class="profile-pic-placeholder" id="profilePicPreview">{{ session['fullname'][0] }}</div>
+                {% endif %}
+                <label class="profile-pic-edit-btn" for="picInput" title="Change photo">
+                    <i class="fa-solid fa-camera"></i>
+                </label>
+            </div>
+            <div class="profile-pic-info">
+                <h3>Dr. {{ session['fullname'] }}</h3>
+                <span class="role-badge doctor-badge"><i class="fa-solid fa-user-doctor"></i> Doctor</span>
+                {% if doctor and doctor.specialization %}
+                <p class="spec-tag"><i class="fa-solid fa-stethoscope"></i> {{ doctor.specialization }}</p>
+                {% endif %}
+                <form action="{{ url_for('update_profile_picture') }}" method="POST" enctype="multipart/form-data" id="picForm">
+                    <input type="file" id="picInput" name="profile_picture" accept="image/*" style="display:none" onchange="document.getElementById('picForm').submit()">
+                </form>
+                <p class="pic-hint"><i class="fa-solid fa-circle-info"></i> Click the camera icon to upload a photo (PNG, JPG, WEBP)</p>
+            </div>
+        </div>
+
+        <!-- Personal Details Card -->
+        <div class="profile-details-card">
+            <div class="profile-details-header">
+                <h3><i class="fa-solid fa-id-card"></i> Personal Details</h3>
+                <button class="btn-edit-profile" onclick="toggleProfileEdit()">
+                    <i class="fa-solid fa-pen"></i> Edit
+                </button>
+            </div>
+
+            <!-- View Mode -->
+            <div id="profileViewMode" class="profile-view-grid">
+                <div class="profile-field">
+                    <span class="field-label"><i class="fa-solid fa-user"></i> Full Name</span>
+                    <span class="field-value">{{ doctor.fullname if doctor else session['fullname'] }}</span>
+                </div>
+                <div class="profile-field">
+                    <span class="field-label"><i class="fa-solid fa-envelope"></i> Email</span>
+                    <span class="field-value">{{ doctor.email if doctor else '' }}</span>
+                </div>
+                <div class="profile-field">
+                    <span class="field-label"><i class="fa-solid fa-phone"></i> Phone</span>
+                    <span class="field-value">{{ doctor.phone if doctor else '' }}</span>
+                </div>
+                <div class="profile-field">
+                    <span class="field-label"><i class="fa-solid fa-stethoscope"></i> Specialization</span>
+                    <span class="field-value">{{ doctor.specialization if doctor else '' }}</span>
+                </div>
+            </div>
+
+            <!-- Edit Mode -->
+            <form id="profileEditMode" action="{{ url_for('update_profile') }}" method="POST" style="display:none">
+                <div class="profile-edit-grid">
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-user"></i> Full Name</label>
+                        <input type="text" name="fullname" class="form-input" value="{{ doctor.fullname if doctor else session['fullname'] }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-envelope"></i> Email</label>
+                        <input type="email" class="form-input" value="{{ doctor.email if doctor else '' }}" disabled title="Email cannot be changed">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-phone"></i> Phone</label>
+                        <input type="text" name="phone" class="form-input" value="{{ doctor.phone if doctor else '' }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-stethoscope"></i> Specialization</label>
+                        <input type="text" name="specialization" class="form-input" value="{{ doctor.specialization if doctor else '' }}">
+                    </div>
+                </div>
+                <div class="profile-edit-actions">
+                    <button type="submit" class="btn-save-profile"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+                    <button type="button" class="btn-cancel-edit" onclick="toggleProfileEdit()"><i class="fa-solid fa-xmark"></i> Cancel</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Change Password Card -->
+        <div class="profile-details-card">
+            <div class="profile-details-header">
+                <h3><i class="fa-solid fa-lock"></i> Change Password</h3>
+            </div>
+            <form action="{{ url_for('change_password') }}" method="POST" class="password-change-form">
+                <div class="profile-edit-grid">
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-lock"></i> Current Password</label>
+                        <input type="password" name="current_password" class="form-input" placeholder="Enter current password" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-key"></i> New Password</label>
+                        <input type="password" name="new_password" class="form-input" placeholder="Min. 8 characters" required minlength="8">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-key"></i> Confirm New Password</label>
+                        <input type="password" name="confirm_password" class="form-input" placeholder="Repeat new password" required minlength="8">
+                    </div>
+                </div>
+                <div class="profile-edit-actions">
+                    <button type="submit" class="btn-save-profile"><i class="fa-solid fa-floppy-disk"></i> Update Password</button>
+                </div>
+            </form>
+        </div>
+    </section>
+</main>
+
+<!-- ══ FORCE PASSWORD CHANGE MODAL ══ -->
+{% if must_change_password %}
+<div class="modal-overlay force-pw-overlay" id="forcePwModal" style="display:flex">
+    <div class="modal-box force-pw-box">
+        <div class="modal-icon orange"><i class="fa-solid fa-shield-exclamation"></i></div>
+        <h3>Set Your Password</h3>
+        <p>For your security, you must set a new personal password before continuing. Your account was created with a default password.</p>
+        <form action="{{ url_for('change_password') }}" method="POST" class="force-pw-form">
+            <div class="form-group">
+                <label><i class="fa-solid fa-key"></i> New Password</label>
+                <input type="password" name="new_password" class="form-input" placeholder="Min. 8 characters" required minlength="8" autofocus>
+            </div>
+            <div class="form-group">
+                <label><i class="fa-solid fa-key"></i> Confirm Password</label>
+                <input type="password" name="confirm_password" class="form-input" placeholder="Repeat new password" required minlength="8">
+            </div>
+            <button type="submit" class="btn-save-profile" style="width:100%;margin-top:8px">
+                <i class="fa-solid fa-lock"></i> Set New Password
+            </button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+
+<!-- Confirmation Modal -->
+<div class="modal-overlay" id="confirmModal">
+    <div class="modal-box">
+        <div class="modal-icon orange"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <h3 id="modalTitle">Confirm Action</h3>
+        <p id="modalMessage">Are you sure?</p>
+        <div class="modal-actions">
+            <button class="btn-modal-cancel" onclick="closeModal()">No, Cancel</button>
+            <button class="btn-modal-confirm" id="modalConfirmBtn">Yes, Proceed</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast notification -->
+<div id="toastNotif" style="
+    position:fixed;bottom:24px;right:24px;z-index:9999;
+    background:#1e293b;color:#fff;padding:14px 22px;border-radius:10px;
+    font-size:14px;display:none;box-shadow:0 4px 20px rgba(0,0,0,.35);
+    align-items:center;gap:10px;max-width:320px;
+"><i class="fa-solid fa-circle-check" style="color:#10b981"></i> <span id="toastMsg"></span></div>
+
+<!-- ══ CHAT OVERLAY ══ -->
+<div class="chat-overlay" id="chatOverlay">
+    <div class="chat-window" id="chatWindow">
+        <div class="chat-header">
+            <div class="chat-avatar-wrap">
+                <div class="chat-avatar" id="chatAvatarLetter">P</div>
+                <span class="online-dot" id="chatOnlineDot"></span>
+            </div>
+            <div class="chat-header-info">
+                <div class="chat-header-name" id="chatHeaderName">Patient</div>
+                <div class="chat-header-status" id="chatHeaderStatus">
+                    <span class="chat-header-status-dot"></span>
+                    <span class="chat-status-text">Offline</span>
+                </div>
+            </div>
+            <button class="chat-close-btn" id="chatCloseBtn" title="Close">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="chat-appt-bar" id="chatApptBar">
+            <i class="fa-solid fa-calendar-check"></i>
+            <span>Appointment details</span>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="chat-empty">
+                <i class="fa-regular fa-comments"></i>
+                <p>Open a chat to start messaging.</p>
+            </div>
+        </div>
+        <div class="typing-indicator" id="chatTyping">
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+        </div>
+        <div class="chat-input-area">
+            <div class="chat-input-wrap">
+                <textarea class="chat-textarea" id="chatTextarea"
+                    rows="1" placeholder="Type a message… (Enter to send)"></textarea>
+            </div>
+            <button class="chat-send-btn" id="chatSendBtn" title="Send">
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-KE', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+
+    // ─── Doctor AJAX Actions ─────────────────────────────────
+    const ACTION_MESSAGES = {
+        accept:   'Accept this appointment?',
+        reject:   'Reject this appointment?',
+        complete: 'Mark appointment as Completed?'
+    };
+
+    let pendingActionId     = null;
+    let pendingActionType   = null;
+
+    window.doctorAction = function(apptId, action) {
+        pendingActionId   = apptId;
+        pendingActionType = action;
+        document.getElementById('modalMessage').textContent = ACTION_MESSAGES[action] || 'Proceed?';
+        document.getElementById('modalTitle').textContent   = 'Confirm Action';
+        document.getElementById('confirmModal').classList.add('open');
+    };
+
+    document.getElementById('modalConfirmBtn').addEventListener('click', async () => {
+        // Capture BEFORE closeModal() nullifies them
+        const apptId = pendingActionId;
+        const action = pendingActionType;
+        closeModal();
+        if (!apptId || !action) return;
+
+        try {
+            const res  = await fetch(`/doctor/update/${apptId}/${action}`, {
+                method:  'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const data = await res.json();
+
+            if (!res.ok || !data.ok) {
+                showToast(data.error || 'Action failed', 'error');
+                return;
+            }
+
+            const newStatus = data.new_status;
+
+            // Update stats counters
+            if (data.stats) {
+                const s = data.stats;
+                document.getElementById('stat-pending').textContent   = s.pending;
+                document.getElementById('stat-accepted').textContent  = s.accepted;
+                document.getElementById('stat-completed').textContent = s.completed;
+            }
+
+            // Update "All Appointments" row
+            updateRowUI(apptId, newStatus);
+
+            // Update "Overview" row
+            updateOverviewRowUI(apptId, newStatus);
+
+            // If completed or rejected – update chat list
+            refreshChatTable();
+
+            showToast(`Appointment marked as ${newStatus}.`, 'success');
+        } catch (err) {
+            showToast('Network error. Please try again.', 'error');
+            console.error(err);
+        }
+    });
+
+    function updateRowUI(apptId, newStatus) {
+        const row    = document.getElementById(`appt-row-${apptId}`);
+        const badge  = document.getElementById(`al-badge-${apptId}`);
+        const actions = document.getElementById(`al-actions-${apptId}`);
+        if (!row) return;
+
+        row.dataset.status = newStatus.toLowerCase();
+        if (badge) {
+            badge.className = `badge badge-${newStatus.toLowerCase()}`;
+            badge.textContent = newStatus;
+        }
+        if (actions) {
+            actions.innerHTML = renderAllActions(apptId, newStatus);
+        }
+
+        // Re-apply filter if active
+        const activeFilter = document.querySelector('.filter-btn.active')?.dataset?.filter;
+        if (activeFilter && activeFilter !== 'all') {
+            row.style.display = row.dataset.status === activeFilter ? '' : 'none';
+        }
+    }
+
+    function updateOverviewRowUI(apptId, newStatus) {
+        const row    = document.getElementById(`appt-overview-${apptId}`);
+        const badge  = document.getElementById(`ov-badge-${apptId}`);
+        const actions = document.getElementById(`ov-actions-${apptId}`);
+
+        if (newStatus === 'Rejected' || newStatus === 'Completed') {
+            // Remove from overview (only shows Pending/Accepted)
+            if (row) row.remove();
+            // Check if overview is now empty
+            const tbody = document.getElementById('overviewTableBody');
+            if (tbody && tbody.querySelectorAll('tr').length === 0) {
+                tbody.innerHTML = '<tr id="ov-empty"><td colspan="6" class="empty-row">No pending or accepted appointments.</td></tr>';
+            }
+        } else {
+            if (badge) { badge.className = `badge badge-${newStatus.toLowerCase()}`; badge.textContent = newStatus; }
+            if (actions && row) {
+                actions.innerHTML = renderOverviewActions(apptId, newStatus, row);
+            }
+        }
+    }
+
+    function renderAllActions(apptId, status) {
+        if (status === 'Pending') {
+            return `
+                <button class="btn-action btn-accept" onclick="doctorAction(${apptId}, 'accept')"><i class="fa-solid fa-check"></i></button>
+                <button class="btn-action btn-cancel" onclick="doctorAction(${apptId}, 'reject')"><i class="fa-solid fa-times"></i></button>`;
+        } else if (status === 'Accepted') {
+            return `
+                <button class="btn-action btn-complete" onclick="doctorAction(${apptId}, 'complete')"><i class="fa-solid fa-flag-checkered"></i> Done</button>
+                <button class="btn-chat" onclick="openChat(${apptId}, '', '', '')"><i class="fa-solid fa-comment-medical"></i> Chat</button>`;
+        } else if (status === 'Rejected') {
+            return `<span class="badge badge-rejected"><i class="fa-solid fa-ban"></i> Rejected</span>`;
+        } else if (status === 'Completed') {
+            return `<span class="badge badge-completed"><i class="fa-solid fa-check-double"></i> Done</span>`;
+        }
+        return '<span class="text-muted">—</span>';
+    }
+
+    function renderOverviewActions(apptId, status, row) {
+        const patientName = row.querySelector('strong')?.textContent || '';
+        const date = row.cells[1]?.textContent || '';
+        const time = row.cells[2]?.textContent || '';
+        if (status === 'Accepted') {
+            return `
+                <button class="btn-action btn-complete" onclick="doctorAction(${apptId}, 'complete')"><i class="fa-solid fa-flag-checkered"></i> Complete</button>
+                <button class="btn-chat" onclick="openChat(${apptId}, '${patientName}', '${date}', '${time}')"><i class="fa-solid fa-comment-medical"></i> Chat</button>`;
+        }
+        return '';
+    }
+
+    function refreshChatTable() {
+        // Refresh accepted-only chat list from page data (already in DOM)
+        const chatBody = document.getElementById('chatTableBody');
+        if (!chatBody) return;
+        const rows = document.querySelectorAll('#allTableBody tr[data-status]');
+        let html = '';
+        rows.forEach(row => {
+            if (row.dataset.status === 'accepted') {
+                const apptId = row.id.replace('appt-row-', '');
+                const patientName = row.querySelector('strong')?.textContent || '';
+                const phone = row.cells[2]?.textContent || '';
+                const date  = row.cells[3]?.textContent || '';
+                const time  = row.cells[4]?.textContent || '';
+                const reason = row.cells[5]?.textContent || '';
+                html += `<tr>
+                    <td><div class="doc-cell">
+                        <div class="doc-avatar green-av">${patientName[0]||'?'}</div>
+                        <div><strong>${patientName}</strong><small>${phone}</small></div>
+                    </div></td>
+                    <td>${date}</td><td>${time}</td>
+                    <td>${reason.substring(0,35)}${reason.length>35?'…':''}</td>
+                    <td><button class="btn-chat" onclick="openChat(${apptId},'${patientName}','${date}','${time}')">
+                        <i class="fa-solid fa-comment-medical"></i> Open Chat
+                    </button></td>
+                </tr>`;
+            }
+        });
+        chatBody.innerHTML = html || '<tr id="chatEmptyRow"><td colspan="5" class="empty-row">No accepted appointments available for chat.</td></tr>';
+    }
+
+    function showToast(msg, type='success') {
+        const toast = document.getElementById('toastNotif');
+        const icon  = toast.querySelector('i');
+        document.getElementById('toastMsg').textContent = msg;
+        icon.className = type === 'error'
+            ? 'fa-solid fa-circle-exclamation'
+            : 'fa-solid fa-circle-check';
+        icon.style.color = type === 'error' ? '#ef4444' : '#10b981';
+        toast.style.display = 'flex';
+        clearTimeout(toast._t);
+        toast._t = setTimeout(() => toast.style.display = 'none', 3500);
+    }
+
+    function closeModal() {
+        document.getElementById('confirmModal').classList.remove('open');
+        pendingActionId = pendingActionType = null;
+    }
+
+    document.getElementById('confirmModal').addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeModal();
+    });
+</script>
+
+<script>
+function toggleProfileEdit() {
+    const view = document.getElementById('profileViewMode');
+    const edit = document.getElementById('profileEditMode');
+    const btn  = document.getElementById('toggleEditBtn');
+    if (edit.style.display === 'none') {
+        view.style.display = 'none';
+        edit.style.display = 'block';
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-xmark"></i> Cancel';
+    } else {
+        view.style.display = 'grid';
+        edit.style.display = 'none';
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-pen"></i> Edit';
+    }
+}
+// Auto-navigate to profile section if flash came from profile route
+(function() {
+    const hash = window.location.hash;
+    if (hash === '#profile') {
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.querySelectorAll('.dash-section').forEach(s => s.classList.remove('active'));
+        const pNav = document.querySelector('[data-section="profile"]');
+        const pSec = document.getElementById('profile');
+        if (pNav) pNav.classList.add('active');
+        if (pSec) pSec.classList.add('active');
+    }
+})();
+</script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Medicare</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/forms.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body class="auth-body">
+    <div class="auth-container">
+
+        <!-- LEFT PANEL -->
+        <div class="auth-panel left-panel">
+            <div class="auth-brand">
+                <i class="fa-solid fa-hospital-user"></i>
+                <span>MediCare</span>
+            </div>
+            <h2>Join MediCare</h2>
+            <p>Create your patient account and start booking appointments with top specialists today.</p>
+            <div class="panel-features">
+                <div class="panel-feat"><i class="fa-solid fa-check"></i> Free Registration</div>
+                <div class="panel-feat"><i class="fa-solid fa-check"></i> Instant Booking</div>
+                <div class="panel-feat"><i class="fa-solid fa-check"></i> Secure Payments</div>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL -->
+        <div class="auth-panel right-panel">
+            <!-- HEADER -->
+            <div class="form-header">
+                <h2>Create Account</h2>
+                <p>Patient registration</p>
+            </div>
+
+            <!-- FORM -->
+            <form method="POST" action="{{ url_for('register') }}" id="registerForm" novalidate>
+                <div class="form-group">
+                    <label for="fullname"><i class="fa-solid fa-user"></i> Full Name</label>
+                    <input type="text" id="fullname" name="fullname" placeholder="enter fullname" required minlength="3">
+                    <span class="field-error" id="fullnameError"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="email"><i class="fa-solid fa-envelope"></i> Email Address</label>
+                    <input type="email" id="email" name="email" placeholder="you@example.com" required>
+                    <span class="field-error" id="emailError"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="phone"><i class="fa-solid fa-phone"></i> Phone Number</label>
+                    <input type="tel" id="phone" name="phone" placeholder="+254700000000" required>
+                    <span class="field-error" id="phoneError"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="password"><i class="fa-solid fa-lock"></i> Password</label>
+                    <div class="input-with-toggle">
+                        <input type="password" id="password" name="password" placeholder="Min. 8 characters" required minlength="8">
+                        <button type="button" class="toggle-pw" onclick="togglePw('password', this)">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
+                    <div class="pw-strength" id="pwStrength">
+                        <div class="pw-bar" id="pwBar"></div>
+                    </div>
+                    <span class="field-error" id="passwordError"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirm"><i class="fa-solid fa-lock-open"></i> Confirm Password</label>
+                    <div class="input-with-toggle">
+                        <input type="password" id="confirm" name="confirm" placeholder="Repeat password" required>
+                        <button type="button" class="toggle-pw" onclick="togglePw('confirm', this)">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
+                    <span class="field-error" id="confirmError"></span>
+                </div>
+
+                <button type="submit" class="btn-submit">
+                    <i class="fa-solid fa-user-plus"></i> Create Account
+                </button>
+            </form>
+
+            <!-- FOOTER -->
+            <div class="auth-footer">
+                <p>Already have an account? <a href="{{ url_for('login') }}">Sign in</a></p>
+                <a href="{{ url_for('index') }}" class="back-home"><i class="fa-solid fa-arrow-left"></i> Back to home</a>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="{{ url_for('static', filename='js/forms.js') }}"></script>
+</body>
+</html>

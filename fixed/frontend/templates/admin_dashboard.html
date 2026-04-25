@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body class="dash-body admin-body">
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar admin-sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <i class="fa-solid fa-hospital-user"></i>
+        <span>MediCare<b>HMS</b></span>
+    </div>
+    <nav class="sidebar-nav">
+        <a href="#overview"     class="nav-item active" data-section="overview"><i class="fa-solid fa-gauge-high"></i> Overview</a>
+        <a href="#appointments" class="nav-item" data-section="appointments"><i class="fa-solid fa-calendar-check"></i> Appointments</a>
+        <a href="#doctors"      class="nav-item" data-section="doctors"><i class="fa-solid fa-user-doctor"></i> Doctors</a>
+        <a href="#users"        class="nav-item" data-section="users"><i class="fa-solid fa-users"></i> Users</a>
+    </nav>
+    <div class="sidebar-footer">
+        <div class="user-chip">
+            <div class="user-avatar red-av">A</div>
+            <div>
+                <strong>{{ session['fullname'] }}</strong>
+                <small>Administrator</small>
+            </div>
+        </div>
+        <a href="{{ url_for('logout') }}" class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+        </a>
+    </div>
+</aside>
+
+<!-- ── MAIN ── -->
+<main class="dash-main">
+    <header class="dash-header">
+        <button class="sidebar-toggle" id="sidebarToggle"><i class="fa-solid fa-bars"></i></button>
+        <div class="dash-header-title">
+            <h1>Admin Control Panel</h1>
+            <p>System-wide management</p>
+        </div>
+        <div class="header-date">
+            <i class="fa-solid fa-calendar"></i>
+            <span id="currentDate"></span>
+        </div>
+    </header>
+    <!-- ── OVERVIEW ── -->
+    <section id="overview" class="dash-section active">
+        <div class="stats-grid five-col">
+            <div class="stat-card blue">
+                <div class="stat-icon"><i class="fa-solid fa-users"></i></div>
+                <div class="stat-info">
+                    <span class="stat-label">Total Users</span>
+                    <span class="stat-num">{{ stats.total_users or 0 }}</span>
+                </div>
+            </div>
+            <div class="stat-card green">
+                <div class="stat-icon"><i class="fa-solid fa-user-doctor"></i></div>
+                <div class="stat-info">
+                    <span class="stat-label">Doctors</span>
+                    <span class="stat-num">{{ stats.total_doctors or 0 }}</span>
+                </div>
+            </div>
+            <div class="stat-card purple">
+                <div class="stat-icon"><i class="fa-solid fa-user-injured"></i></div>
+                <div class="stat-info">
+                    <span class="stat-label">Patients</span>
+                    <span class="stat-num">{{ stats.total_patients or 0 }}</span>
+                </div>
+            </div>
+            <div class="stat-card yellow">
+                <div class="stat-icon"><i class="fa-solid fa-calendar-days"></i></div>
+                <div class="stat-info">
+                    <span class="stat-label">Appointments</span>
+                    <span class="stat-num">{{ stats.total_appointments or 0 }}</span>
+                </div>
+            </div>
+            <div class="stat-card teal">
+                <div class="stat-icon"><i class="fa-solid fa-dollar-sign"></i></div>
+                <div class="stat-info">
+                    <span class="stat-label">Revenue (KES)</span>
+                    <span class="stat-num">{{ "{:,.0f}".format(stats.total_revenue or 0) }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick summary table -->
+        <div class="dash-card">
+            <div class="card-head">
+                <h3><i class="fa-solid fa-chart-bar"></i> Appointments Overview</h3>
+                <button class="btn-sm" onclick="showSection('appointments')">Manage All</button>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead><tr><th>Patient</th><th>Doctor</th><th>Date</th><th>Status</th></tr></thead>
+                    <tbody>
+                        {% for a in appointments[:8] %}
+                        <tr>
+                            <td><strong>{{ a.patient_name }}</strong></td>
+                            <td>{{ a.doctor_name }}</td>
+                            <td>{{ a.date }}</td>
+                            <td><span class="badge badge-{{ a.status.lower() }}">{{ a.status }}</span></td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="empty-row">No appointments found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── APPOINTMENTS ── -->
+    <section id="appointments" class="dash-section">
+        <div class="dash-card">
+            <div class="card-head">
+                <h3><i class="fa-solid fa-calendar-check"></i> All Appointments</h3>
+                <!-- Status Filter -->
+                <div class="admin-filter">
+                    <form method="GET" action="{{ url_for('admin_dashboard') }}#appointments" class="filter-form">
+                        <select name="status" onchange="this.form.submit()" class="filter-select">
+                            <option value="All" {% if filter_status == 'All' %}selected{% endif %}>All Status</option>
+                            {% for s in ['Pending','Accepted','Completed','Cancelled','Rejected'] %}
+                            <option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ s }}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Patient</th>
+                            <th>Doctor</th>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Reason</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in appointments %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td><strong>{{ a.patient_name }}</strong></td>
+                            <td>{{ a.doctor_name }}</td>
+                            <td>{{ a.date }}</td>
+                            <td>{{ a.time }}</td>
+                            <td>{{ a.reason[:25] }}{% if a.reason|length > 25 %}…{% endif %}</td>
+                            <td><span class="badge badge-{{ a.status.lower() }}">{{ a.status }}</span></td>
+                            <td class="actions-cell">
+                                <!-- Change Status -->
+                                <form method="POST" action="{{ url_for('admin_update_status', appt_id=a.id) }}" style="display:inline-flex;gap:4px">
+                                    <select name="status" class="mini-select">
+                                        {% for s in ['Pending','Accepted','Rejected','Completed','Cancelled'] %}
+                                        <option value="{{ s }}" {% if a.status==s %}selected{% endif %}>{{ s }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" class="btn-action btn-accept"><i class="fa-solid fa-check"></i></button>
+                                </form>
+                                <!-- Delete -->
+                                <form method="POST" action="{{ url_for('admin_delete_appointment', appt_id=a.id) }}"
+                                      onsubmit="return confirmAction('Delete this appointment permanently?')" style="display:inline">
+                                    <button class="btn-action btn-delete"><i class="fa-solid fa-trash"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="8" class="empty-row">No appointments found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── DOCTORS ── -->
+    <section id="doctors" class="dash-section">
+        <div class="admin-two-col">
+            <!-- Add Doctor Form -->
+            <div class="dash-card form-card">
+                <div class="card-head">
+                    <h3><i class="fa-solid fa-user-plus"></i> Add New Doctor</h3>
+                </div>
+                <form method="POST" action="{{ url_for('admin_add_doctor') }}" id="addDoctorForm">
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" name="fullname" placeholder="Dr. Jane Smith" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" name="email" placeholder="dr.smith@hospital.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Phone</label>
+                        <input type="tel" name="phone" placeholder="+254700000000" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Specialization</label>
+                        <input type="text" name="specialization" placeholder="e.g. Cardiologist" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Default Password</label>
+                        <input type="text" name="password" value="Doctor@1234">
+                    </div>
+                    <button type="submit" class="btn-submit-dash">
+                        <i class="fa-solid fa-user-plus"></i> Add Doctor
+                    </button>
+                </form>
+            </div>
+
+            <!-- Doctors List -->
+            <div class="dash-card">
+                <div class="card-head">
+                    <h3><i class="fa-solid fa-user-doctor"></i> Registered Doctors</h3>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead><tr><th>#</th><th>Name</th><th>Email</th><th>Specialization</th><th>Action</th></tr></thead>
+                        <tbody>
+                            {% for d in doctors %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td><strong>{{ d.fullname }}</strong></td>
+                                <td>{{ d.email }}</td>
+                                <td>{{ d.specialization or '—' }}</td>
+                                <td>
+                                    <form method="POST" action="{{ url_for('admin_delete_doctor', uid=d.id) }}"
+                                          onsubmit="return confirmAction('Remove Dr. {{ d.fullname }}?')">
+                                        <button class="btn-action btn-delete"><i class="fa-solid fa-trash"></i> Remove</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5" class="empty-row">No doctors registered.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── USERS ── -->
+    <section id="users" class="dash-section">
+        <div class="dash-card">
+            <div class="card-head">
+                <h3><i class="fa-solid fa-users"></i> All Users</h3>
+                <input type="text" id="userSearch" placeholder="Search users…" class="search-input" oninput="filterUsers(this.value)">
+            </div>
+            <div class="table-responsive">
+                <table class="data-table" id="usersTable">
+                    <thead><tr><th>#</th><th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Joined</th><th>Action</th></tr></thead>
+                    <tbody>
+                        {% for u in users %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td><strong>{{ u.fullname }}</strong></td>
+                            <td>{{ u.email }}</td>
+                            <td>{{ u.phone }}</td>
+                            <td>
+                                <span class="role-badge role-{{ u.role }}">{{ u.role.capitalize() }}</span>
+                            </td>
+                            <td>{{ u.created_at.strftime('%Y-%m-%d') if u.created_at else '—' }}</td>
+                            <td>
+                                {% if u.role != 'admin' %}
+                                <form method="POST" action="{{ url_for('admin_delete_user', uid=u.id) }}"
+                                      onsubmit="return confirmAction('Delete user {{ u.fullname }}? This cannot be undone.')">
+                                    <button class="btn-action btn-delete"><i class="fa-solid fa-trash"></i></button>
+                                </form>
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="7" class="empty-row">No users found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+</main>
+
+<!-- Confirmation Modal -->
+<div class="modal-overlay" id="confirmModal">
+    <div class="modal-box">
+        <div class="modal-icon red"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <h3 id="modalTitle">Confirm Action</h3>
+        <p id="modalMessage">Are you sure?</p>
+        <div class="modal-actions">
+            <button class="btn-modal-cancel" onclick="closeModal()">Cancel</button>
+            <button class="btn-modal-confirm" id="modalConfirmBtn">Yes, Proceed</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-KE', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+
+    function filterUsers(val) {
+        const rows = document.querySelectorAll('#usersTable tbody tr');
+        rows.forEach(r => {
+            r.style.display = r.textContent.toLowerCase().includes(val.toLowerCase()) ? '' : 'none';
+        });
+    }
+</script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+</body>
+</html>

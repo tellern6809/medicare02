@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login MediCare</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/forms.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body class="auth-body">
+
+<div class="auth-container">
+    <div class="auth-panel left-panel">
+        <div class="auth-brand">
+            <i class="fa-solid fa-hospital-user"></i>
+            <span>MediCare</span>
+        </div>
+        <h2>Welcome Back</h2>
+        <p>Sign in to manage your healthcare appointments and records.</p>
+        <div class="panel-features">
+            <div class="panel-feat"><i class="fa-solid fa-check"></i> Secure Access</div>
+            <div class="panel-feat"><i class="fa-solid fa-check"></i> Real-time Updates</div>
+            <div class="panel-feat"><i class="fa-solid fa-check"></i> Multi-role Support</div>
+        </div>
+    </div>
+
+    <div class="auth-panel right-panel">
+        <div class="form-header">
+            <h2>Sign In</h2>
+            <p>Enter your credentials to continue</p>
+        </div>
+
+        <form method="POST" action="{{ url_for('login') }}" id="loginForm" novalidate>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category }}" style="
+                    padding: 12px 16px;
+                    border-radius: 10px;
+                    margin-bottom: 16px;
+                    font-size: 14px;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    {% if category == 'danger' %}
+                        background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;
+                    {% elif category == 'success' %}
+                        background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7;
+                    {% else %}
+                        background: #fef3c7; color: #92400e; border: 1px solid #fde68a;
+                    {% endif %}
+                ">
+                    <i class="fa-solid {% if category == 'danger' %}fa-circle-exclamation{% elif category == 'success' %}fa-circle-check{% else %}fa-triangle-exclamation{% endif %}"></i>
+                    {{ message }}
+                </div>
+                {% endfor %}
+            {% endif %}
+            {% endwith %}
+            <div class="form-group">
+                <label for="email"><i class="fa-solid fa-envelope"></i> Email Address</label>
+                <input type="email" id="email" name="email" placeholder="you@example.com" required autocomplete="email">
+                <span class="field-error" id="emailError"></span>
+            </div>
+            <div class="form-group">
+                <label for="password"><i class="fa-solid fa-lock"></i> Password</label>
+                <div class="input-with-toggle">
+                    <input type="password" id="password" name="password" placeholder="Your password" required>
+                    <button type="button" class="toggle-pw" onclick="togglePw('password', this)">
+                    </button>
+                </div>
+                <span class="field-error" id="passwordError"></span>
+            </div>
+            <div class="forgot-link-wrap">
+                <a href="{{ url_for('forgot_password') }}" class="forgot-link">
+                    <i class="fa-solid fa-key"></i> Forgot your password?
+                </a>
+            </div>
+
+            <button type="submit" class="btn-submit">
+                <i class="fa-solid fa-right-to-bracket"></i> Sign In
+            </button>
+        </form>
+
+        <div class="auth-footer">
+            <p>Don't have an account? <a href="{{ url_for('register') }}">Register here</a></p>
+            <a href="{{ url_for('index') }}" class="back-home"><i class="fa-solid fa-arrow-left"></i> Back to home</a>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/forms.js') }}"></script>
+</body>
+</html>

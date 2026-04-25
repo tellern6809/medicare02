@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment – MediCare</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/payment.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <!-- Stripe JS (loaded only when key is configured) -->
+    {% if stripe_pk and stripe_pk != 'YOUR_STRIPE_PUBLISHABLE_KEY' %}
+    <script src="https://js.stripe.com/v3/"></script>
+    {% endif %}
+    <!-- PayPal SDK is loaded after payment.js at bottom of body -->
+</head>
+<body class="payment-body">
+
+<div class="payment-wrapper">
+    <!-- Header -->
+    <div class="payment-header">
+        <a href="{{ url_for('patient_dashboard') }}" class="back-link">
+            <i class="fa-solid fa-arrow-left"></i> Back
+        </a>
+        <div class="payment-brand">
+            <i class="fa-solid fa-hospital-user"></i>
+            <span>MediCare</span>
+        </div>
+    </div>
+
+    <div class="payment-container">
+        <!-- Order Summary -->
+        <div class="payment-summary">
+            <h2>Appointment Summary</h2>
+            <div class="summary-card">
+                <div class="summary-row">
+                    <i class="fa-solid fa-user-doctor"></i>
+                    <div>
+                        <small>Doctor</small>
+                        <strong>{{ appointment.doctor_name }}</strong>
+                    </div>
+                </div>
+                <div class="summary-row">
+                    <i class="fa-solid fa-stethoscope"></i>
+                    <div>
+                        <small>Specialization</small>
+                        <strong>{{ appointment.specialization or 'General Practice' }}</strong>
+                    </div>
+                </div>
+                <div class="summary-row">
+                    <i class="fa-solid fa-calendar"></i>
+                    <div>
+                        <small>Date &amp; Time</small>
+                        <strong>{{ appointment.date }} at {{ appointment.time }}</strong>
+                    </div>
+                </div>
+                <div class="summary-row">
+                    <i class="fa-solid fa-file-medical"></i>
+                    <div>
+                        <small>Reason</small>
+                        <strong>{{ appointment.reason }}</strong>
+                    </div>
+                </div>
+                <div class="summary-divider"></div>
+                <div class="summary-total">
+                    <span>Consultation Fee</span>
+                    <strong class="amount">KES 1,500</strong>
+                </div>
+            </div>
+
+            <!-- Security badges -->
+            <div class="security-badges">
+                <div class="badge-item"><i class="fa-solid fa-shield-halved"></i> SSL Encrypted</div>
+                <div class="badge-item"><i class="fa-solid fa-lock"></i> PCI Compliant</div>
+                <div class="badge-item"><i class="fa-solid fa-check-circle"></i> Secure Payment</div>
+            </div>
+        </div>
+
+        <!-- Payment Methods -->
+        <div class="payment-methods">
+            <h2>Choose Payment Method</h2>
+
+            <!-- Method Tabs -->
+            <div class="method-tabs">
+                <button class="method-tab active" data-method="stripe">
+                    <i class="fa-brands fa-stripe"></i> Stripe
+                </button>
+                <button class="method-tab" data-method="mpesa">
+                    <i class="fa-solid fa-mobile-screen-button"></i> M-Pesa
+                </button>
+                <button class="method-tab" data-method="paypal">
+                    <i class="fa-brands fa-paypal"></i> PayPal
+                </button>
+            </div>
+
+            <!-- ── CARD Payment ── -->
+            <div class="method-panel active" id="panel-stripe">
+                {% if stripe_pk and stripe_pk != 'YOUR_STRIPE_PUBLISHABLE_KEY' %}
+                <!-- Stripe Card Element -->
+                <div id="stripeCardWrap">
+                    <div class="card-display">
+                        <div class="card-chip"></div>
+                        <div class="card-number-display" id="cardDisplay">•••• •••• •••• ••••</div>
+                        <div class="card-bottom">
+                            <span id="cardNameDisplay">CARD HOLDER</span>
+                            <span id="cardExpiryDisplay">MM/YY</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Card Details</label>
+                        <div id="stripe-card-element"></div>
+                        <div id="stripe-card-errors" style="color:#ef4444;font-size:13px;margin-top:6px;"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Cardholder Name</label>
+                        <input type="text" id="stripeCardName" placeholder="Full name on card" required>
+                    </div>
+                    <button type="button" class="btn-pay-submit" id="stripePayBtn">
+                        <i class="fa-solid fa-lock"></i> Pay KES 1,500 Securely
+                    </button>
+                </div>
+                {% else %}
+                <!-- Fallback card form (dev/demo mode) -->
+                <form method="POST" action="{{ url_for('process_payment') }}" id="cardForm">
+                    <input type="hidden" name="appointment_id" value="{{ appointment.id }}">
+                    <input type="hidden" name="amount" value="1500">
+                    <input type="hidden" name="method" value="stripe">
+                    <input type="hidden" name="transaction_ref" id="cardRef">
+
+                    <div class="card-display">
+                        <div class="card-chip"></div>
+                        <div class="card-number-display" id="cardDisplay">•••• •••• •••• ••••</div>
+                        <div class="card-bottom">
+                            <span id="cardNameDisplay">CARD HOLDER</span>
+                            <span id="cardExpiryDisplay">MM/YY</span>
+                        </div>
+                    </div>
+
+                    <div style="background:#fef3c7;border:1px solid #f59e0b;padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px;color:#92400e;">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <strong>Dev Mode:</strong> Add your Stripe Publishable Key to <code>STRIPE_PK</code> env var to enable real card payments.
+                    </div>
+
+                    <div class="form-group">
+                        <label>Card Number</label>
+                        <div class="card-input-wrap">
+                            <input type="text" id="cardNumber" placeholder="1234 5678 9012 3456"
+                                   maxlength="19" oninput="formatCard(this)" required>
+                            <i class="fa-brands fa-cc-visa card-icon"></i>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Cardholder Name</label>
+                        <input type="text" id="cardName" placeholder="Full name on card"
+                               oninput="document.getElementById('cardNameDisplay').textContent = this.value.toUpperCase() || 'CARD HOLDER'" required>
+                    </div>
+                    <div class="form-row-pay">
+                        <div class="form-group">
+                            <label>Expiry Date</label>
+                            <input type="text" id="cardExpiry" placeholder="MM/YY" maxlength="5"
+                                   oninput="formatExpiry(this)" required>
+                        </div>
+                        <div class="form-group">
+                            <label>CVV</label>
+                            <input type="password" id="cardCvv" placeholder="•••" maxlength="4" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-pay-submit" onclick="setRef('cardRef')">
+                        <i class="fa-solid fa-lock"></i> Pay KES 1,500 (Demo)
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+
+            <!-- ── M-PESA Payment ── -->
+            <div class="method-panel" id="panel-mpesa">
+                <div class="mpesa-logo">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/M-PESA_LOGO-01.svg/320px-M-PESA_LOGO-01.svg.png"
+                         alt="M-Pesa" onerror="this.style.display='none'">
+                    <div class="mpesa-text">M-PESA</div>
+                </div>
+
+                <div class="mpesa-instructions">
+                    <p><i class="fa-solid fa-info-circle"></i>
+                        Enter your M-Pesa registered number to receive an STK push prompt on your phone.
+                    </p>
+                </div>
+
+                <div class="form-group">
+                    <label>M-Pesa Phone Number</label>
+                    <div class="phone-input-wrap">
+                        <span class="phone-prefix">+254</span>
+                        <input type="tel" id="mpesaPhone" placeholder="700 000 000" maxlength="9">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Amount (KES)</label>
+                    <input type="text" value="1,500" readonly class="readonly-input">
+                </div>
+
+                <button type="button" class="btn-pay-submit mpesa-btn" id="mpesaPayBtn">
+                    <i class="fa-solid fa-mobile-screen-button"></i> Send STK Push – KES 1,500
+                </button>
+                <p class="mpesa-note">You will receive a prompt on your phone. Enter your M-Pesa PIN to confirm.</p>
+
+                <!-- Hidden fallback form for dev mode -->
+                <form method="POST" action="{{ url_for('process_payment') }}" id="mpesaFallbackForm" style="display:none">
+                    <input type="hidden" name="appointment_id" value="{{ appointment.id }}">
+                    <input type="hidden" name="amount" value="1500">
+                    <input type="hidden" name="method" value="mpesa">
+                    <input type="hidden" name="transaction_ref" id="mpesaFallbackRef">
+                </form>
+            </div>
+
+            <!-- ── PAYPAL Payment ── -->
+            <div class="method-panel" id="panel-paypal">
+                <div class="paypal-logo">
+                    <i class="fa-brands fa-paypal"></i>
+                    <span>Pay<b>Pal</b></span>
+                </div>
+
+                <div class="paypal-amount-box">
+                    <div class="pp-row">
+                        <span>Consultation Fee</span>
+                        <strong>KES 1,500</strong>
+                    </div>
+                    <div class="pp-divider"></div>
+                    <div class="pp-row total">
+                        <span>Total</span>
+                        <strong>KES 1,500</strong>
+                    </div>
+                </div>
+
+                {% if paypal_client_id %}
+                <!-- Real PayPal SDK button -->
+                <div id="paypal-button-container">
+                    <div style="text-align:center;padding:18px;color:#64748b;font-size:14px;">
+                        <i class="fa-solid fa-spinner fa-spin"></i> Loading PayPal…
+                    </div>
+                </div>
+                <form method="POST" action="{{ url_for('process_payment') }}" id="paypalRecordForm" style="display:none">
+                    <input type="hidden" name="appointment_id" value="{{ appointment.id }}">
+                    <input type="hidden" name="amount" value="1500">
+                    <input type="hidden" name="method" value="paypal">
+                    <input type="hidden" name="transaction_ref" id="paypalTxRef">
+                </form>
+                {% else %}
+                <!-- Demo / dev mode PayPal -->
+                <form method="POST" action="{{ url_for('process_payment') }}" id="paypalForm">
+                    <input type="hidden" name="appointment_id" value="{{ appointment.id }}">
+                    <input type="hidden" name="amount" value="1500">
+                    <input type="hidden" name="method" value="paypal">
+                    <input type="hidden" name="transaction_ref" id="paypalRef">
+
+                    <button type="submit" class="btn-pay-submit paypal-btn" style="width:100%;margin-top:8px;" onclick="setRef('paypalRef')">
+                        <i class="fa-brands fa-paypal"></i> Pay with PayPal
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const APPT_ID     = {{ appointment.id }};
+    const STRIPE_PK   = "{{ stripe_pk or '' }}";
+    const HAS_STRIPE  = STRIPE_PK && STRIPE_PK !== 'YOUR_STRIPE_PUBLISHABLE_KEY';
+    const HAS_PAYPAL  = {{ 'true' if paypal_client_id else 'false' }};
+</script>
+<script src="{{ url_for('static', filename='js/payment.js') }}"></script>
+
+{% if paypal_client_id %}
+<!-- PayPal SDK loaded AFTER payment.js so initPayPal() is already defined -->
+<script>
+(function() {
+    var script = document.createElement('script');
+    script.src = "https://www.paypal.com/sdk/js?client-id={{ paypal_client_id }}&currency=USD&intent=capture";
+    script.onload = function() { initPayPal(); };
+    script.onerror = function() {
+        var c = document.getElementById('paypal-button-container');
+        if (c) c.innerHTML = '<p style="color:#ef4444;text-align:center;font-size:13px;padding:12px;"><i class="fa-solid fa-triangle-exclamation"></i> PayPal failed to load. Please try another payment method.</p>';
+    };
+    document.body.appendChild(script);
+})();
+</script>
+{% endif %}
+</body>
+</html>
