@@ -66,7 +66,7 @@ def _mail_cfg():
     username = os.environ.get('MAIL_USERNAME', '').strip()
     password = os.environ.get('MAIL_PASSWORD', '').strip()
     sender   = os.environ.get('MAIL_FROM', username).strip()
-    base_url = os.environ.get('APP_BASE_URL', 'http://localhost:5000').rstrip('/')
+    base_url = os.environ.get('APP_BASE_URL', 'https://medicare02.onrender.com').rstrip('/')
     return host, port, username, password, sender, base_url
 
 # Keep module-level names for backwards compat (used as defaults only)
@@ -75,7 +75,7 @@ MAIL_PORT     = int(os.environ.get('MAIL_PORT', 587))
 MAIL_USERNAME = os.environ.get('MAIL_USERNAME', '').strip()
 MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD', '').strip()
 MAIL_FROM     = os.environ.get('MAIL_FROM', MAIL_USERNAME).strip()
-APP_BASE_URL  = os.environ.get('APP_BASE_URL', 'http://localhost:5000').rstrip('/')
+APP_BASE_URL  = os.environ.get('APP_BASE_URL', 'https://medicare02.onrender.com').rstrip('/')
 
 # ──────────────────────────────────────────────
 # Database Helper
