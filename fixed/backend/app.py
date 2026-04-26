@@ -80,17 +80,19 @@ APP_BASE_URL  = os.environ.get('APP_BASE_URL', 'https://medicare02.onrender.com'
 # ──────────────────────────────────────────────
 # Database Helper
 # ──────────────────────────────────────────────
+db_pool = mysql.connector.pooling.MySQLConnectionPool(
+    pool_name="medicare_pool",
+    pool_size=10,
+    host=os.environ.get('DB_HOST', 'localhost'),
+    port=int(os.environ.get('DB_PORT', 3306)),
+    user=os.environ.get('DB_USER', 'root'),
+    password=os.environ.get('DB_PASSWORD', ''),
+    database=os.environ.get('DB_NAME', 'healthcare_db'),
+    charset='utf8mb4'
+)
+
 def get_db():
-    conn = mysql.connector.connect(
-        host=os.environ.get('DB_HOST', 'localhost'),
-        port=int(os.environ.get('DB_PORT', 3306)),
-        user=os.environ.get('DB_USER', 'root'),
-        password=os.environ.get('DB_PASSWORD', ''),
-        database=os.environ.get('DB_NAME', 'healthcare_db'),
-        charset='utf8mb4'
-    )
-    # Set session timezone to Africa/Nairobi (UTC+3) so NOW() returns Kenya time
-    # This ensures password reset tokens and all timestamps use Kenyan local time
+    conn = db_pool.get_connection()
     try:
         cur = conn.cursor()
         cur.execute("SET time_zone = '+03:00'")
