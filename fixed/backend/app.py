@@ -582,7 +582,7 @@ def mpesa_stk_push():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/payment/mpesa/callback', methods=['POST'])
+@app.route('/mpesa-express-simulate/', methods=['POST'])
 def mpesa_callback():
     """Daraja will POST payment confirmation here."""
     data = request.get_json(silent=True) or {}
