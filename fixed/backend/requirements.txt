@@ -7,4 +7,3 @@ stripe
 requests
 python-dotenv
 gunicorn
-APScheduler==3.10.4
