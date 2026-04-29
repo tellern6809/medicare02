@@ -80,26 +80,48 @@ APP_BASE_URL  = os.environ.get('APP_BASE_URL', 'https://medicare02.onrender.com'
 # ──────────────────────────────────────────────
 # Database Helper
 # ──────────────────────────────────────────────
-db_pool = mysql.connector.pooling.MySQLConnectionPool(
-    pool_name="medicare_pool",
-    pool_size=10,
+_DB_CONFIG = dict(
     host=os.environ.get('DB_HOST', 'localhost'),
     port=int(os.environ.get('DB_PORT', 3306)),
     user=os.environ.get('DB_USER', 'root'),
     password=os.environ.get('DB_PASSWORD', ''),
     database=os.environ.get('DB_NAME', 'healthcare_db'),
-    charset='utf8mb4'
+    charset='utf8mb4',
+    connection_timeout=10,
 )
 
+try:
+    db_pool = mysql.connector.pooling.MySQLConnectionPool(
+        pool_name="medicare_pool",
+        pool_size=10,
+        **_DB_CONFIG
+    )
+except Exception as _pool_err:
+    db_pool = None
+    import logging as _logging
+    _logging.warning('DB pool init failed: %s — will connect directly', _pool_err)
+
 def get_db():
-    conn = db_pool.get_connection()
+    """Return a live DB connection, handling stale pooled connections gracefully."""
     try:
-        cur = conn.cursor()
-        cur.execute("SET time_zone = '+03:00'")
-        cur.close()
-    except Exception:
-        pass
-    return conn
+        if db_pool:
+            conn = db_pool.get_connection()
+        else:
+            conn = mysql.connector.connect(**_DB_CONFIG)
+        # Ping to detect stale connections (raises on failure)
+        conn.ping(reconnect=True, attempts=3, delay=1)
+        try:
+            cur = conn.cursor()
+            cur.execute("SET time_zone = '+03:00'")
+            cur.close()
+        except Exception:
+            pass
+        return conn
+    except mysql.connector.errors.PoolError:
+        # Pool exhausted — fall back to a direct connection
+        conn = mysql.connector.connect(**_DB_CONFIG)
+        conn.ping(reconnect=True, attempts=3, delay=1)
+        return conn
 def query(sql, params=(), fetchone=False, fetchall=False, commit=False):
     """Generic query helper – prevents SQL injection via parameterised queries."""
     conn = None
@@ -358,10 +380,15 @@ def book_appointment():
         flash('Invalid date format.', 'danger')
         return redirect(url_for('patient_dashboard'))
 
-    query("""
-        INSERT INTO appointments (patient_id, doctor_id, date, time, reason, status)
-        VALUES (%s,%s,%s,%s,%s,'Pending')
-    """, (uid, doctor_id, date, time, reason), commit=True)
+    try:
+        query("""
+            INSERT INTO appointments (patient_id, doctor_id, date, time, reason, status)
+            VALUES (%s,%s,%s,%s,%s,'Pending')
+        """, (uid, doctor_id, date, time, reason), commit=True)
+    except Exception as db_err:
+        app.logger.error('book_appointment DB error: %s', db_err, exc_info=True)
+        flash('Could not book appointment due to a server error. Please try again.', 'danger')
+        return redirect(url_for('patient_dashboard'))
 
     # ── Email notifications on appointment submission ──
     try:
